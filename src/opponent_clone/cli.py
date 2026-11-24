@@ -7,6 +7,8 @@ from collections import Counter
 from pathlib import Path
 
 from . import chesscom, lichess
+from .profile import build_profile, load_games
+from .report import render
 from .config import load_dotenv
 
 
@@ -19,7 +21,17 @@ def main(argv: list[str] | None = None) -> None:
     f.add_argument("--chesscom")
     f.add_argument("--max", type=int, default=500, help="max games per platform")
     f.add_argument("--out", default="data")
+    r = sub.add_parser("report", help="build a prep report from fetched games")
+    r.add_argument("--player", required=True)
+    r.add_argument("--data", default="data")
+    r.add_argument("--out", default="report.md")
     a = p.parse_args(argv)
+    if a.cmd == "report":
+        prof = build_profile(load_games(a.data))
+        Path(a.out).write_text(render(a.player, prof))
+        Path(a.out).with_suffix(".json").write_text(json.dumps(prof, indent=1))
+        print(f"wrote {a.out}")
+        return
     if not (a.lichess or a.chesscom):
         p.error("give --lichess and/or --chesscom")
 
