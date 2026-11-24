@@ -31,7 +31,7 @@ def _opening_from_pgn(pgn: str) -> tuple[str | None, str | None]:
     name = None
     if url:
         # Drop trailing move list, e.g. "Sicilian-Defense-Open-2.Nf3-d6" -> "Sicilian Defense Open"
-        name = re.split(r"-\d+\.", url.group(1))[0].replace("-", " ")
+        name = re.split(r"-\d+\.|\.\.\.", url.group(1))[0].replace("-", " ").strip()
     return (name, eco.group(1) if eco else None)
 
 
