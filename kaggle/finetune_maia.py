@@ -18,13 +18,15 @@ MAX_GAMES = 1500                # per platform; more games = better clone (aim f
 import json, random, chess, torch, torch.nn.functional as F
 from opponent_clone import chesscom, lichess
 from opponent_clone.samples import split_games, game_samples
+from opponent_clone import clockmodel
 
 CONFIG = dict(
     bucket="blitz",                        # blitz or rapid (Maia-2 ships these two base models)
     epochs=5, lr=1e-4, batch_size=64,
     train_scope="head",                    # "head" = output layer + final norm + elo embeddings; "all" = whole network
     holdout_frac=0.2, skip_plies=0, seed=0,
-    out="clone.pt",
+    out="clone_head.pt",                   # small file: only the fine-tuned layers (a few MB)
+    clock_out="clock_model.json",
     max_positions=None,                    # cap per split for quick CPU smoke tests
 )
 if CONFIG["bucket"] not in ("blitz", "rapid"):
@@ -122,4 +124,35 @@ print("\nbase Maia-2   :", base)
 print("best clone    :", best)
 print("PASS: clone beats base on held-out move matching" if best["top1"] > base["top1"] else
       "FAIL: clone does not beat base; need more games or a lower learning rate")
-torch.save(best_state, CONFIG["out"]); print("saved", CONFIG["out"])
+
+# %% save slim weights (only layers that were trained; the base model is downloaded again when you use the clone)
+HEAD_PREFIXES = ("fc_1.", "last_ln.", "elo_embedding.") if CONFIG["train_scope"] == "head" else ("",)
+slim = {k: v for k, v in best_state.items() if k.startswith(HEAD_PREFIXES)}
+torch.save({"state": slim, "bucket": CONFIG["bucket"], "train_scope": CONFIG["train_scope"],
+            "players": {"lichess": LICHESS_USER, "chesscom": CHESSCOM_USER}, "held_out": best, "base_held_out": base},
+           CONFIG["out"])
+print("saved", CONFIG["out"], f"({sum(v.numel() for v in slim.values()) * 4 / 1e6:.1f} MB)")
+
+# %% clock model: per-clock-bucket temperature (does the player get sloppier short of time?) + think times
+model.load_state_dict(best_state); model.eval()
+per_bucket = {}
+with torch.no_grad():
+    for i in range(0, len(hold_s), 128):
+        chunk = hold_s[i:i + 128]
+        boards, es, eo, legal, y = encode(chunk)
+        lg = masked_logits(model, boards, es, eo, legal).cpu()
+        for j, smp in enumerate(chunk):
+            idx = legal[j].nonzero().flatten().cpu()
+            if smp["clock"] is None or smp["base"] is None:
+                continue
+            pos = (idx == y[j].cpu()).nonzero()
+            if len(pos) == 0:
+                continue
+            b = clockmodel.clock_bucket(smp["clock"], smp["base"])
+            per_bucket.setdefault(b, []).append((lg[j][idx].numpy(), int(pos[0])))
+cm_model = clockmodel.fit(train_s + hold_s, per_bucket)
+clockmodel.save(cm_model, CONFIG["clock_out"])
+print("clock model: temperature by bucket (low clock -> high clock):", cm_model["temperature"])
+print("samples per bucket:", cm_model["n_per_bucket"])
+print("median think time (s) by bucket:", [sorted(t)[len(t) // 2] if t else None for t in cm_model["think_times"]])
+print(f"\nDOWNLOAD: {CONFIG['out']} and {CONFIG['clock_out']} from the notebook's Output tab (/kaggle/working).")

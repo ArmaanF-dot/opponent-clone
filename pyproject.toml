@@ -3,13 +3,15 @@ name = "opponent-clone"
 version = "0.1.0"
 description = "Fetch an opponent's games, split by time control, and build a style profile."
 requires-python = ">=3.10"
-dependencies = ["requests>=2.31"]
+dependencies = ["requests>=2.31", "numpy", "chess"]
 
 [project.optional-dependencies]
 dev = ["pytest"]
+clone = ["maia2", "torch"]
 
 [project.scripts]
 opponent-clone = "opponent_clone.cli:main"
+opponent-clone-bot = "opponent_clone.bot:main"
 
 [build-system]
 requires = ["setuptools>=68"]
