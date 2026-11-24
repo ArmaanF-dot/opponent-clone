@@ -1,0 +1,20 @@
+# Secrets - never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+# Data and models
+data/
+*.pgn
+*.pt
+*.ckpt
+# Python
+__pycache__/
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+dist/
+build/
