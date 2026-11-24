@@ -1,35 +1,42 @@
 # Fine-tune Maia-2 on one player and one time control, then compare with the base model on held-out games.
-# Runs on Kaggle (free GPU) or locally on CPU for tiny data. No API keys or accounts are needed or used here.
+# ONE-CELL KAGGLE RUN: it installs the repo, downloads the games itself, trains, and prints a verdict.
 #
-# Kaggle steps:
-#  1. New notebook -> Settings -> Accelerator: GPU T4 x2 (or P100). Internet: On.
-#  2. Add your fetched data (data/*.jsonl from `opponent-clone fetch`) as a *private* Kaggle dataset.
-#     It is public game data, but keep it private anyway.
-#  3. Paste this file into a cell (or `!git clone` the repo) and set the CONFIG below.
-# Never put Kaggle/Lichess tokens in this file or the repo.
+# Steps:
+#  1. kaggle.com -> Create -> New Notebook. Right panel: Session options -> Accelerator "GPU T4 x2", Internet "On".
+#  2. Paste this whole file into the first cell, edit LICHESS_USER / CHESSCOM_USER below, press Run.
+# No Kaggle or Lichess keys are needed or used. Never put tokens in this file or the repo.
 
 # %% setup
-# !pip install -q maia2 chess
-import glob, json, random, sys
-import chess, torch, torch.nn.functional as F
+import subprocess, sys
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "maia2", "chess", "requests",
+                "git+https://github.com/ArmaanF-dot/opponent-clone.git"], check=True)
+
+LICHESS_USER = "EricRosen"      # set to None to skip
+CHESSCOM_USER = "IMRosen"       # set to None to skip
+MAX_GAMES = 1500                # per platform; more games = better clone (aim for 100+ in your chosen bucket)
+
+import json, random, chess, torch, torch.nn.functional as F
+from opponent_clone import chesscom, lichess
+from opponent_clone.samples import split_games, game_samples
 
 CONFIG = dict(
-    data_glob="/kaggle/input/*/*.jsonl",   # where your dataset's jsonl files are
     bucket="blitz",                        # blitz or rapid (Maia-2 ships these two base models)
     epochs=5, lr=1e-4, batch_size=64,
     train_scope="head",                    # "head" = output layer + final norm + elo embeddings; "all" = whole network
     holdout_frac=0.2, skip_plies=0, seed=0,
-    out="/kaggle/working/clone.pt",
+    out="clone.pt",
     max_positions=None,                    # cap per split for quick CPU smoke tests
 )
 if CONFIG["bucket"] not in ("blitz", "rapid"):
     sys.exit("Maia-2 only ships blitz and rapid base models; bullet/classical need your own base. Use blitz or rapid.")
 
-# repo helper (pure python). If you didn't clone the repo, copy src/opponent_clone/samples.py next to this file.
-try:
-    from opponent_clone.samples import build_dataset
-except ImportError:
-    from samples import build_dataset
+games = []
+if LICHESS_USER:
+    games += [g.to_dict() for g in lichess.fetch(LICHESS_USER, MAX_GAMES)]
+if CHESSCOM_USER:
+    games += [g.to_dict() for g in chesscom.fetch(CHESSCOM_USER, MAX_GAMES)]
+games = [g for g in games if g["bucket"] == CONFIG["bucket"]]
+print(f"fetched {len(games)} {CONFIG['bucket']} games")
 
 from maia2 import model as maia_model
 from maia2.utils import get_all_possible_moves, create_elo_dict, board_to_tensor, map_to_category, mirror_move
@@ -41,11 +48,13 @@ move_to_idx = {m: i for i, m in enumerate(all_moves)} if isinstance(all_moves, l
 elo_dict = create_elo_dict()
 
 # %% data
-train_s, hold_s = build_dataset(sorted(glob.glob(CONFIG["data_glob"])), CONFIG["bucket"], CONFIG["holdout_frac"], CONFIG["skip_plies"])
+tr_g, ho_g = split_games(games, CONFIG["holdout_frac"])
+train_s = [x for g in tr_g for x in game_samples(g, CONFIG["skip_plies"])]
+hold_s = [x for g in ho_g for x in game_samples(g, CONFIG["skip_plies"])]
 print(f"train positions {len(train_s)}, held-out positions {len(hold_s)}")
 if CONFIG["max_positions"]:
     train_s, hold_s = train_s[:CONFIG["max_positions"]], hold_s[:CONFIG["max_positions"]]
-assert train_s and hold_s, "need data in both splits: fetch more games (aim for 100+)"
+assert train_s and hold_s, "need data in both splits: raise MAX_GAMES or use a more active player (aim for 100+ games)"
 
 def encode(batch):
     boards, es, eo, legal, y = [], [], [], [], []

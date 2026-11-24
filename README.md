@@ -23,6 +23,6 @@ Output goes to `data/` (gitignored), one JSONL file per platform and time contro
 - Downloaded games stay local (`data/`, `*.pgn` are gitignored).
 
 ## Step 3: fine-tune a Maia-2 clone (Kaggle)
-`kaggle/finetune_maia.py` fine-tunes the pretrained Maia-2 blitz/rapid model on one player and one time control, then compares move-matching (top-1, top-3, loss) with base Maia-2 on that player's newest, held-out games. It needs no keys or accounts in code: upload your `data/*.jsonl` as a private Kaggle dataset, turn on a GPU and Internet, and paste the script into a notebook (setup steps are at the top of the file). The default fine-tunes only the output head and rating embeddings; the clone must beat base on held-out games to count. Per-player and clock embeddings come in step 4.
+`kaggle/finetune_maia.py` (a one-cell Kaggle script that downloads the games itself) fine-tunes the pretrained Maia-2 blitz/rapid model on one player and one time control, then compares move-matching (top-1, top-3, loss) with base Maia-2 on that player's newest, held-out games. Set the usernames at the top, turn on a GPU and Internet in a new Kaggle notebook, paste the script into one cell and run (steps are at the top of the file; no keys needed). The default fine-tunes only the output head and rating embeddings; the clone must beat base on held-out games to count. Per-player and clock embeddings come in step 4.
 
 Tested end to end on CPU with a small sample (pipeline works; use 100+ games for a real result).
