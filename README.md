@@ -21,3 +21,8 @@ Output goes to `data/` (gitignored), one JSONL file per platform and time contro
 - No keys in code. Settings come from environment variables or a local `.env`, which is gitignored. Only `.env.example` (placeholders) is committed.
 - The public Lichess and Chess.com endpoints used here need no key. A Lichess token is optional and only raises rate limits; use one with no scopes.
 - Downloaded games stay local (`data/`, `*.pgn` are gitignored).
+
+## Step 3: fine-tune a Maia-2 clone (Kaggle)
+`kaggle/finetune_maia.py` fine-tunes the pretrained Maia-2 blitz/rapid model on one player and one time control, then compares move-matching (top-1, top-3, loss) with base Maia-2 on that player's newest, held-out games. It needs no keys or accounts in code: upload your `data/*.jsonl` as a private Kaggle dataset, turn on a GPU and Internet, and paste the script into a notebook (setup steps are at the top of the file). The default fine-tunes only the output head and rating embeddings; the clone must beat base on held-out games to count. Per-player and clock embeddings come in step 4.
+
+Tested end to end on CPU with a small sample (pipeline works; use 100+ games for a real result).
