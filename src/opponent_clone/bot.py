@@ -4,7 +4,7 @@ Security:
   * The token comes ONLY from the LICHESS_BOT_TOKEN environment variable (or a gitignored .env). It is never logged.
   * It declines every challenge unless the challenger is on LICHESS_BOT_ALLOW (comma-separated usernames).
   * It plays one game at a time and only unrated games.
-Setup: create a NEW Lichess account for the bot, make a token with the 'bot:play' scope, then upgrade the account
+Setup: create a NEW Lichess account for the bot, make a token with exactly these scopes: bot:play, challenge:read, challenge:write, then upgrade the account
 to a bot account (this is permanent and only works on an account with no games played):
   curl -d '' https://lichess.org/api/bot/account/upgrade -H "Authorization: Bearer $LICHESS_BOT_TOKEN"
 """
