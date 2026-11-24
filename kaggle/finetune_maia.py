@@ -38,6 +38,14 @@ if CHESSCOM_USER:
 games = [g for g in games if g["bucket"] == CONFIG["bucket"]]
 print(f"fetched {len(games)} {CONFIG['bucket']} games")
 
+# maia2 imports pyzstd (only used for its own training-data decompression); its compiled module can fail to
+# load on Kaggle, so stub it if it does. We never call it.
+try:
+    import pyzstd  # noqa: F401
+except Exception:
+    import types
+    sys.modules["pyzstd"] = types.ModuleType("pyzstd")
+
 from maia2 import model as maia_model
 from maia2.utils import get_all_possible_moves, create_elo_dict, board_to_tensor, map_to_category, mirror_move
 
