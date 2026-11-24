@@ -32,3 +32,6 @@ Tested end to end on CPU with a small sample (pipeline works; use 100+ games for
 - `opponent_clone.clone.Clone` loads base Maia-2 plus that head and picks moves; `pip install -e .[clone]`.
 - `opponent-clone-bot --head clone_head.pt --clock clock_model.json` runs a Lichess bot. Use a NEW account made only for the bot, a token with only the `bot:play`, `challenge:read` and `challenge:write` scopes in `LICHESS_BOT_TOKEN` (env or gitignored `.env`), and list who may challenge it in `LICHESS_BOT_ALLOW` (it declines everyone otherwise, plays unrated standard games, one at a time). Upgrading an account to a bot is permanent: see the docstring in `bot.py`.
 - Limits: clock awareness is a temperature plus think-time model, not a clock input to the network; the bot has not been tested against live Lichess yet (needs your bot account).
+
+**Windows note:** `pip install -e .[clone]` can fail building `pyzstd` (a Maia-2 dependency the bot never uses). Use instead:
+`pip install maia2 --no-deps`, `pip install torch chess einops gdown pandas pyyaml tqdm numpy requests`, `pip install -e . --no-deps`.
